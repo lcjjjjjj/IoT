@@ -80,22 +80,25 @@ export default {
 
 <style>
 html,body {
-  margin: 0px;
-  height: 100%;
-  background: #F0F6F7;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  /* height: 100%; */
 }
 .el-dropdown-menu__item, .el-menu-item {
   padding-left: 20% !important;
 }
 
 .common-layout {
-  height: 100%;
+  height: 100vh;
 }
 .el-container {
   height: 100%;
 }
 .el-header {
-  background-color: #fff;
+  height: 60px !important;
+  background-color: #89A7F0;
 }
 
 .el-aside {
@@ -103,7 +106,9 @@ html,body {
 }
 
 .el-main {
-  height: 100%;
+  height: calc(100vh - 60px);
+  padding: 0;
+  overflow: hidden;
 }
 .el-menu {
   background-color: transparent!important; /* 设置背景颜色为透明 */
@@ -120,13 +125,14 @@ html,body {
   margin-right: 10px;
 }
 
+
 .el-header .title{
   color: #fff;
   margin: 0px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 13%;
+  width: 18%;
   font-size: 18px;
   font-weight: bold;
   height: 100%;

@@ -1,12 +1,12 @@
 <template>
-  <div>
+  <div class="container">
     <Panel :title="title" :desc="desc"/>
     <div class="button-area">
       <el-select
         v-model="getsearch_option"
         placeholder="请选择选项"
         clearable
-        style="width: 150px"
+        style="width: 100px"
       >
         <el-option
           v-for="item in options_item"
@@ -30,7 +30,7 @@
         >查询</el-button
       >
       <el-button type="success" @click="addbutton"
-        >JSON文件上传指引
+        >JSON文件上传
       </el-button>
       <el-dialog
         title="上传JSON文件"
@@ -66,10 +66,10 @@
       </el-dialog>
       <el-button type="danger" @click="clearSelect" style="float: right; margin-left: 10px;">清空选择</el-button>
       <el-button type="primary" @click="getReasoning" style="float: right;">推理</el-button>
-      <el-input v-model="tailEntity" disabled placeholder="请选择尾实体" style="float: right; width: 200px; padding-right: 10px;"></el-input>
+      <el-input v-model="tailEntity" disabled placeholder="请选择尾实体" style="float: right; width: 100px; padding-right: 10px;"></el-input>
       <p style="float: right; padding-top: 7px;">尾实体：</p>
       <el-button style="float: right; margin-right: 10px;" icon="el-icon-refresh" circle @click="switchEntities"></el-button>
-      <el-input v-model="headEntity" disabled placeholder="请选择头实体" style="float: right; width: 200px; padding-right: 10px;"></el-input>
+      <el-input v-model="headEntity" disabled placeholder="请选择头实体" style="float: right; width: 100px; padding-right: 10px;"></el-input>
       <p style="float: right; padding-top: 7px;">头实体：</p>
     </div>
     <div class="display-area">
@@ -404,19 +404,26 @@ export default {
 </script>
   
 <style scoped>
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column; 
+}
+
 .el-input.is-disabled >>> .el-input__inner {
   color: #000; /* 替换#your-color为你想要的颜色 */
 }
 
 .button-area {
-  margin-top: 20px;
+  margin-top: 1%;
 }
 
 .display-area {
-  margin-top: 20px;
+  padding: 1%;
   display: flex;
   align-items: center;
-  height: 688px;
+  height: 100%
 }
 
 

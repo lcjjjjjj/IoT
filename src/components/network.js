@@ -22,3 +22,16 @@ export function request (config) {
     return instance(config)
     
 }
+
+export function request_(config) {
+    const instance = axios.create({
+        baseURL: "http://39.103.172.54:8088/"
+    })
+
+    instance.interceptors.request.use(info => {
+        info.headers.token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhdWQiOiLlvKDkuIkifQ.cEs9dVMZVtb1t5agxhgZr1c6c57PVD5z4KZWUdREEHU";
+        return info
+    }, err => { alert('网络请求失败') })
+    instance.interceptors.response.use(res => { return res.data }, err => { return {'msg':'网络错误 error','status':400} })
+    return instance(config)
+}

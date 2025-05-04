@@ -1,5 +1,5 @@
 <template>
-  <div >
+  <div class="container">
     <Panel :title="title" :desc="desc" />
     <div class="display-area">
       <template>
@@ -83,8 +83,8 @@
               </el-select>
             </div>
             <div class="table-area">
-              <div id="mainbox1" style="height: 80%; width: 100%; padding-bottom: 50px;"></div>
-              <div id="mainbox2" style="height: 80%; width: 100%; padding-bottom: 50px;"></div>
+              <div id="mainbox1"></div>
+              <div id="mainbox2"></div>
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -96,6 +96,8 @@
 <script>
 import { request } from '../components/network';
 import Panel from '../components/Panel.vue';
+import entitiesData from '../assets/result.json'
+import relationsData from '../assets/re_result.json'
 export default{
   data() {
     return {
@@ -104,6 +106,10 @@ export default{
       title: '信息统计',
       desc: '主要展示个功能模块的准确率信息以及，知识抽取模块中实体和关系的统计信息。',
       activeName: 'first',
+      totalEntities: {'url': 1088, 'sample': 8962, 'component': 33100, 'organization': 2694, 'product': 33594, 'event': 4305, 'action': 18088, 'enterprise': 1953, 'vulnerability': 70983, 'ip': 493, 'domain': 869, 'weakness': 9353},
+      totalRelations: {'download': 749, 'access': 1170, 'same_organization_intelligence': 3713, 'execute': 38655, 'exploit': 14400, 'target_of': 22098, 'alias': 5859, 'intelligence_contain': 7779, 'call': 2103, 'invade': 19676, 'influence': 75747, 'storage': 109, 'perform': 600, 'have': 42472, 'lead_to': 40904, 'related_to': 67, 'inverse_query': 105, 'analysis': 183, 'related_domain': 191, 'consist_of': 39574, 'similar_to': 2094, 'production_of': 7949, 'belong_to': 113, 'same_organization_event': 693, 'same_network_segment': 247, 'associate': 26, 'outside_chain': 24, 'subdomain': 146, 'upload': 1},
+      entitiesData: entitiesData,
+      relationsData: relationsData,
       chartData: {
         title:{
           text: "实体类型统计",
@@ -118,7 +124,8 @@ export default{
         grid: {
           left: '3%',
           right: '4%',
-          bottom: '3%',
+          bottom: '15%',
+          top: '15%',
           containLabel: true
         },
         xAxis:[
@@ -127,7 +134,8 @@ export default{
             data: [],
             axisTick: {
               alignWithLabel:true
-            }
+            },
+            axisLabel: {interval:0, rotate: 30}
           }
         ],
         yAxis: [
@@ -147,21 +155,36 @@ export default{
       pieData: {
         title: {
           text: '关系类型统计',
-          left: 'center'
+          left: 'center',
         },
         tooltip:{
           trigger: 'item',
         },
         legend: {
-          orient: 'vertical',
-          left: 'left'
+          // orient: 'horizontal',
+          bottom: '0%',
+          left: 'center',
+          orient: 'horizontal'
+        },
+        grid: {
+          top: '10%',
+          bottom: '10%'
         },
         series:[
           {
             name: 'relation type',
             type: 'pie',
             radius: '50%',
+            center: ['50%', '40%'],
             data: [],
+            itemStyle: {
+              borderRadius: 4
+            },
+            label: {
+              show: true,
+              position: 'outside',
+              margin: 5
+            },
             emphasis: {
               itemStyle: {
                 shadowBlur: 10,
@@ -184,11 +207,47 @@ export default{
   mounted(){
       // this.showbar(),
       // this.showtotal()
+      this.initResizeListener()
+  },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.handleResize)
   },
   components: {
     Panel
   },
   methods:{
+    createData(entitiesData,relationsData) {
+      var xlabels = Object.keys(entitiesData)
+      var ylabels = Object.values(entitiesData)
+      // console.log(xlabels,ylabels)
+      var pielabels = new Array
+      for(var index in Object.keys(relationsData)){
+        // console.log(Object.keys(relationsData)[index])
+        pielabels.push({'value': relationsData[Object.keys(relationsData)[index]],'name': Object.keys(relationsData)[index]})
+      }
+      return {'xlabel': xlabels, 'ylabel': ylabels, 'pielabel': pielabels}
+    },
+    initResizeListener() {
+      window.addEventListener('resize', this.handleResize)
+    },
+    handleResize() {
+      if (this.chartDom && this.chartDom2) {
+        this.$echarts.getInstanceByDom(this.chartDom).resize();
+        this.$echarts.getInstanceByDom(this.chartDom2).resize();
+      }
+    },
+    createCategoryData(category) {
+      var xlabels = Object.keys(this.entitiesData[category])
+      var ylabels = Object.values(this.entitiesData[category])
+      // console.log(category)
+      // console.log(xlabels,ylabels)
+      var pielabels = new Array
+      for (var index in Object.keys(this.relationsData[category])){
+        pielabels.push({'value': this.relationsData[category][Object.keys(this.relationsData[category])[index]],'name': Object.keys(this.relationsData[category])[index]})
+      }
+      console.log({'xlabel': xlabels, 'ylabel': ylabels, 'pielabel': pielabels})
+      return {'xlabel': xlabels, 'ylabel': ylabels, 'pielabel': pielabels}
+    },
     showtotal() {
       request({
         url: 'InfoAnalys/page',
@@ -199,29 +258,18 @@ export default{
         
       }).then((res) => {
         console.log(res);
-        var sourceName = [];
-        this.options = [];
-        for (var i = 0; i < res.data.list.length; i++) {
-          if (sourceName.indexOf(res.data.list[i].datasourceName) == -1) {
-            sourceName.push(res.data.list[i].datasourceName)
-          }
-        }
-        for (var i = 0; i < sourceName.length; i++) {
+        console.log(this.entitiesData,this.relationsData)
+        for (var index in Object.keys(this.entitiesData)) {
           this.options.push({
-            value: i.toString(),
-            label: sourceName[i]
+            value: index.toString(),
+            label: Object.keys(this.entitiesData)[index]
           })
         }
-        // show total table
-        var xlabel = [1,2,3,4,5,6]
-        var ylabel = [1,2,3,4,5,6]
-        var pielabel = [
-          { value: 1048, name: 'Search Engine' },
-          { value: 735, name: 'Direct' },
-          { value: 580, name: 'Email' },
-          { value: 484, name: 'Union Ads' },
-          { value: 300, name: 'Video Ads' }
-        ]
+        var totalInfo = this.createData(this.totalEntities,this.totalRelations)
+        // console.log(totalInfo)
+        var xlabel = totalInfo['xlabel']
+        var ylabel = totalInfo['ylabel']
+        var pielabel = totalInfo['pielabel']
         this.chartData.xAxis[0].data = xlabel
         this.chartData.series[0].data = ylabel
         this.chartDom = document.getElementById('mainbox1');
@@ -263,25 +311,17 @@ export default{
         url: "InfoAnalys/page",
         method: "post",
         data: {
-          "datasourceName": this.options[value].label
+          // "datasourceName": this.options[value].label
+          "datasourceName": 'cve'
         }
       }).then((res) => {
         console.log(res,"res")
-        var xlabel = []
-        var ylabel = []
-        var pielabel = []
-        for (var i=0;i<res.data.list.length;i++){
-          if(res.data.list[i].type === '1'){
-            xlabel.push(res.data.list[i].entityEdgeCatogery)
-            ylabel.push(res.data.list[i].count)
-          }
-          else if(res.data.list[i].type === '2'){
-            pielabel.push({
-              value: res.data.list[i].count,
-              name: res.data.list[i].entityEdgeCatogery
-            })
-          }
-        }
+        var category = this.options[value].label
+        var infoData = this.createCategoryData(category)
+        console.log(infoData)
+        var xlabel = infoData['xlabel']
+        var ylabel = infoData['ylabel']
+        var pielabel = infoData['pielabel']
         this.chartData.xAxis[0].data = xlabel
         this.chartData.series[0].data = ylabel
         this.chartDom = document.getElementById('mainbox1');
@@ -298,42 +338,77 @@ export default{
     }
   }
 } 
-
- 
-</script scoped>
+</script>
 
 <style scoped>
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .display-area {
-  height: 748px;
-  margin-top: 6px;
+  flex: 1;
+  /* padding left and right */
+  padding: 0 1%;
+  overflow: hidden;
 }
 
 .select-area {
+  height: 40px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
 }
 
 .table-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  height: calc(100%-60px);
+  margin: 0;
+  padding: 20px 0;
+}
+
+#mainbox1, #mainbox2 {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  position: relative;
   display: flex;
-  height: 716px;
-  margin-top: 10px;
-  margin-bottom: 10px;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.el-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.el-tabs__content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
 }
 
 .el-tab-pane {
-  height: 760px;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
 }
 
 .el-row {
   margin-bottom: 20px;
-  &:last-child {
-    margin-bottom: 0;
-  }
 }
 
-.el-col {
+.grid-content {
+  background-color: #fff;
+  padding: 15px;
   border-radius: 4px;
+  height: 100%;
 }
 
 </style>

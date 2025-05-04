@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="container">
     <Panel :title="title" :desc="desc"/>
     <div class="button-area">
       <el-select
@@ -383,15 +383,22 @@ export default {
 </script>
   
 <style scoped>
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column; 
+}
+
 .button-area {
-  margin-top: 20px;
+  margin-top: 1%;
 }
 
 .display-area {
-  margin-top: 20px;
+  padding: 1%;
   display: flex;
   align-items: center;
-  height: 688px;
+  height: 100%;
 }
 
 </style>

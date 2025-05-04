@@ -17,8 +17,8 @@ export default new Router({
   routes: [
     {
       path: '/',
-      name: 'Graph',
-      component: Graph
+      name: 'Data_source',
+      component: Data_source
     },
     {
       path: '/Graph',
