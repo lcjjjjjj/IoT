@@ -151,13 +151,34 @@ export default {
       })).filter(item => this.activateDangerData.includes(item.id));
     },
     weightMap: {
-      
+      get() {
+        return this.$store.getters.getWeightMap;
+      },
+      set(value) {
+        this.$store.commit('setWeightMap', value);
+      }
     },
     scoreMap: {
-      
+      get() {
+        return this.$store.getters.getScoreMap;
+      },
+      set(value) {
+        this.$store.commit('setScoreMap', value);
+      }
     },
     totalScore: {
-      
+      get() {
+        return this.$store.getters.getTotalScore;
+      },
+      set(value) {
+        this.$store.commit('setTotalScore', value);
+      }
+    },
+    configChanged() {
+      return this.$store.getters.hasConfigChanged;
+    },
+    isWeightInitialized() {
+      return this.$store.getters.getWeightInitialized;
     },
     hasItems() {
       return this.deviceItems.length > 0 || this.secureItems.length > 0 || this.dangerItems.length > 0;
