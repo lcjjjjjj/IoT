@@ -7,7 +7,7 @@
         <div class="area-content">
           <h3>攻击检测与报告列表</h3>
           <div class="report-container">
-            <div class="report-content" v-if="reportList.length > 0">
+            <div class="report-content" v-if="hasItems">
               <el-timeline>
                 <el-timeline-item
                   v-for="(report, index) in reportList"
@@ -111,15 +111,12 @@ export default {
       })),
       secureData: ['实时流量','异常流量','连接状态','DDos攻击','恶意软件','入侵检测'],
       dangerData: ['数据来源','访问日志','异常行为','数据类型','风险等级','威胁趋势'],
-      weightMap: {},
-      scoreMap: {},
-      totalScore: 0,
-      chart: null,
-      scoreChart: null,
       reportList: [],
       isLoading: false,
       dialogVisible: false,
       selectedReport: null,
+      chart: null,
+      scoreChart: null,
     }
   },
   components: {
@@ -155,7 +152,7 @@ export default {
         return this.$store.getters.getWeightMap;
       },
       set(value) {
-        this.$store.commit('setWeightMap', value);
+        this.$store.dispatch('updateWeightMap', value);
       }
     },
     scoreMap: {
@@ -163,7 +160,7 @@ export default {
         return this.$store.getters.getScoreMap;
       },
       set(value) {
-        this.$store.commit('setScoreMap', value);
+        this.$store.dispatch('updateScoreMap', value);
       }
     },
     totalScore: {
@@ -171,7 +168,7 @@ export default {
         return this.$store.getters.getTotalScore;
       },
       set(value) {
-        this.$store.commit('setTotalScore', value);
+        this.$store.dispatch('updateTotalScore', value);
       }
     },
     configChanged() {
@@ -270,6 +267,13 @@ export default {
     },
   },
   watch: {
+    configChanged(newVal) {
+      if (newVal && this.isWeightInitialized) {
+        this.assignRandomWeights();
+        this.calculateScore();
+        this.$store.dispatch('updateConfigState');
+      }
+    },
     scoreChartData: {
       handler() {
         this.$nextTick(() => {
@@ -301,8 +305,19 @@ export default {
   },
   mounted() {
     console.log(this.deviceItems,this.secureItems,this.dangerItems)
-    this.assignRandomWeights();
-    this.calculateScore();
+    if (!this.isWeightInitialized) {
+      this.assignRandomWeights();
+      this.calculateScore();
+      this.$store.dispatch('setWeightInitialized', true);
+      this.$store.dispatch('updateConfigState');
+    } else if (this.configChanged) {
+      this.assignRandomWeights();
+      this.calculateScore();
+      this.$store.dispatch('updateConfigState');
+    } else {
+      console.log("保持现有权重不变");
+    }
+
     this.getReport();
 
     if (this.hasItems) {
@@ -313,8 +328,6 @@ export default {
     }
 
     window.addEventListener('resize', this.resizeChart);
-
-    this.isFirstLoad = false;
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.resizeChart);
@@ -333,38 +346,44 @@ export default {
         console.log("保持现有权重不变");
         return;
       }
-      this.weightMap = {};
-      const allItems = [
-        ...this.deviceItems.map(item => ({name: item.name, type: 'device', id: item.id})),
-        ...this.secureItems.map(item => ({name: item.name, type: 'secure', id: item.id})),
-        ...this.dangerItems.map(item => ({name: item.name, type: 'danger', id: item.id}))
-      ];
-      if (allItems.length === 0) return;
-
-      let totalWeight = 0;
-      allItems.forEach(item => {
-        const randomWeight = 0.1 + Math.random() * 0.9;
-        const key = `${item.name}`;
-        this.weightMap[key] = randomWeight;
-        totalWeight += randomWeight;
-      });
-      Object.keys(this.weightMap).forEach(key => {
-        this.weightMap[key] = Number((this.weightMap[key] / totalWeight).toFixed(4));
-      });
-      console.log(this.weightMap);
-    },
-    calculateScore() {
-      if (Object.keys(this.scoreMap).length > 0 && !this.configChanged) {
-        console.log("保持现有分数不变");
-        return;
-      }
-      this.scoreMap = {};
+      const newWeightMap = {};
       const allItems = [
         ...this.deviceItems.map(item => ({name: item.name, type: 'device', id: item.id})),
         ...this.secureItems.map(item => ({name: item.name, type: 'secure', id: item.id})),
         ...this.dangerItems.map(item => ({name: item.name, type: 'danger', id: item.id}))
       ];
       if (allItems.length === 0) {
+        this.weightMap = newWeightMap;
+        return;
+      }
+
+      let totalWeight = 0;
+      allItems.forEach(item => {
+        const randomWeight = 0.1 + Math.random() * 0.9;
+        const key = `${item.name}`;
+        newWeightMap[key] = randomWeight;
+        totalWeight += randomWeight;
+      });
+      Object.keys(newWeightMap).forEach(key => {
+        newWeightMap[key] = Number((newWeightMap[key] / totalWeight).toFixed(4));
+      });
+
+      this.weightMap = newWeightMap;
+      console.log("权重已更新：",newWeightMap);
+    },
+    calculateScore() {
+      if (Object.keys(this.scoreMap).length > 0 && !this.configChanged) {
+        console.log("保持现有分数不变");
+        return;
+      }
+      const newScoreMap = {};
+      const allItems = [
+        ...this.deviceItems.map(item => ({name: item.name, type: 'device', id: item.id})),
+        ...this.secureItems.map(item => ({name: item.name, type: 'secure', id: item.id})),
+        ...this.dangerItems.map(item => ({name: item.name, type: 'danger', id: item.id}))
+      ];
+      if (allItems.length === 0) {
+        this.scoreMap = newScoreMap;
         this.totalScore = 0;
         return;
       }
@@ -385,24 +404,21 @@ export default {
         }
         const fluctuation = 0.8 + Math.random() * 0.4;
         const finalScore = Math.min(100, Math.max(0, baseScore * fluctuation));
-        this.scoreMap[item.name] = Number(finalScore.toFixed(2));
+        newScoreMap[item.name] = Number(finalScore.toFixed(2));
       });
       let weightedTotal = 0;
       let totalWeightApplied = 0;
       allItems.forEach(item => {
         const weight = this.weightMap[item.name];
-        const score = this.scoreMap[item.name];
+        const score = newScoreMap[item.name];
         weightedTotal += weight * score;
         totalWeightApplied += weight;
       });
 
-      if (totalWeightApplied > 0) {
-        this.totalScore = Number((weightedTotal).toFixed(2));
-      } else {
-        this.totalScore = 0;
-      }
-      console.log(this.scoreMap);
-      console.log(this.totalScore);
+      const newTotalScore = totalWeightApplied > 0 ? Number((weightedTotal).toFixed(2)) : 0;
+    
+      this.scoreMap = newScoreMap;
+      this.totalScore = newTotalScore;
     },
     initChart() {
       if (this.chart) {
@@ -529,6 +545,9 @@ export default {
       }
     },
     getReport() {
+      if (!this.hasItems) {
+        return;
+      }
       request_({
         url: "/apt/vendorSearch",
         params: {

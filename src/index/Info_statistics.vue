@@ -202,6 +202,20 @@ export default{
           f1: '0.836'
         }
       ],
+      tableData2:[
+        {
+          precision: '0.832',
+          recall: '0.813',
+          f1: '0.823'
+        }
+      ],
+      tableData3:[
+        {
+          precision: '0.821',
+          recall: '0.838',
+          f1: '0.829'
+        }
+      ]
     }
   },
   mounted(){

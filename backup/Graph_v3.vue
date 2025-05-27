@@ -17,7 +17,7 @@
         </el-option>
       </el-select>
       <el-input
-        v-model.trim="input"
+        v-model="input"
         clearable
         :disabled="this.getsearch_option !== '' ? false : true"
         @clear="return_AllNodes"
@@ -109,11 +109,10 @@
 </template>
 
 <script>
-import { request } from "../components/network.js";
+import { request } from "../src/components/network.js";
 import { Loading } from "element-ui";
 import { MessageBox } from "element-ui";
 import Panel from "../components/Panel.vue";
-import * as echarts from "echarts";
 
 export default {
   data() {
@@ -157,8 +156,8 @@ export default {
         "step": "1",
       }
     }).then((res) => {
+      console.log(res.data)
       const filteredData = this.filterGraphData(res.data, 100);
-      console.log(filteredData, "filteredData")
       this.showGraph(filteredData);
     })
   },
@@ -166,171 +165,6 @@ export default {
     Panel,
   },
   methods: {
-    parserGraph(res_data) {
-      return new Promise((resolve) => {
-        var graph = {
-          type: "force",
-          categories: [],
-          nodes:[],
-          links: []
-        }
-        // 统计节点的所有种类
-        var categories = new Set()
-        for (var i = 0; i < res_data.vertexLists.length; i++) {
-          categories.add(res_data.vertexLists[i].type)
-        }
-        // 将Set转换为数组并添加到图的categories中
-        graph.categories = Array.from(categories).map((category, index) => {
-          return {
-            name: category,
-            keyword: {},
-            base: category
-          }
-        });
-        // 处理节点数据
-        for (var i = 0; i < res_data.vertexLists.length; i++){
-          var node = {
-            name: res_data.vertexLists[i].name,
-            value: 1,
-            category: graph.categories.findIndex(item => item.name === res_data.vertexLists[i].type),
-            vid: res_data.vertexLists[i].VID,
-            ctime: res_data.vertexLists[i].createTime,
-            sentence: res_data.vertexLists[i].sentence
-          }
-          graph.nodes.push(node)
-        }
-        //处理边数据
-        for (var i = 0; i< res_data.edges.length; i++) {
-          var srcNode = res_data.vertexLists[res_data.vertexLists.findIndex(item => item.VID === res_data.edges[i].src)].name
-          var dstNode = res_data.vertexLists[res_data.vertexLists.findIndex(item => item.VID === res_data.edges[i].dst)].name
-          var edge = {
-            name: res_data.edges[i].edgename,
-            source: graph.nodes.findIndex(item => item.name === srcNode),
-            target: graph.nodes.findIndex(item => item.name === dstNode)
-          }
-          graph.links.push(edge)
-        }
-        resolve(graph)
-      });
-    },
-    showGraph(res_data) {
-      this.mainbox_chart = echarts.init(
-        document.getElementById("mainbox")
-      );
-      this.mainbox_chart.showLoading();
-      this.parserGraph(res_data).then(graph => {
-        var nodes = graph.nodes.map((node, index) => {
-          node.id = index;
-          return node;
-        })
-        var links = graph.links
-        this.mainbox_chart.hideLoading();
-        console.log(Array.from(graph.categories).map((category, index) => {
-              return category.name
-            }))
-        var option = {
-          title: {
-            text: "多源物联网知识图谱实体链接",
-            top: "top",
-            left: "left"
-          },
-          tooltip: {
-            trigger: "item",
-            enterable: true,
-            formatter: (params) => {
-              if (params.dataType === "edge") {
-                return "关系: " + params.data.name;
-              } else {
-                return "ID: " + params.data.vid + "<br/>" +
-                  "名称: " + params.data.name + "<br/>" + 
-                  "创建时间: " + params.data.ctime + "<br/>" +
-                  "类型: " + graph.categories[params.data.category].name;
-              }
-            }
-          },
-          legend: {
-            data: graph.categories.map(category => category.name),
-            top: "bottom",
-            selectedMode: 'multiple',
-            selector: true
-          },
-          animationDuration: 1500,
-          animationEasingUpdate: 'quinticInOut',
-          series: [
-            {
-              type: 'graph',
-              layout: 'force',
-              animation: false,
-              label: {
-                position: 'right',
-                formatter: '{b}'
-              },
-              roam: true,
-              draggable: true,
-              data: nodes,
-              categories: graph.categories,
-              symbolSize: 15,
-              label: {
-                show: true,
-                position: "right",
-                formatter: "{b}",
-                fontsize: 10
-              },
-              force: {
-                edgeLength: [100,150],
-                repulsion: 500,
-                gravity: 0.4,
-                layoutAnimation: true,
-                initLayout: "circular",
-                nodeRepulsion: (node1, node2) => {
-                  // 如果是同一类别，减小斥力
-                  if (node1.category === node2.category) {
-                    return 0; // 同类别减小斥力
-                  }
-                  return 1000; // 不同类别增大斥力
-                }
-              },
-              edges: links,
-              edgeSymbol: ['arrow'],
-              edgeSymbolSize: [4, 10],
-              edgeLabel: {
-                show: true,
-                position: 'middle',
-                formatter: (params) => {
-                  return params.data.name;
-                },
-                fontSize: 8,
-                align: 'center',
-                verticalAlign: 'middle'
-              },
-              emphasis: {
-                focus: 'adjacency',
-                lineStyle: {
-                  width: 5
-                }
-              },
-              lineStyle: {
-                curveness: 0.01,
-                width: 1.5
-              }
-            }
-          ]
-        };
-        this.mainbox_chart.setOption(option);
-        this.mainbox_chart.on("click", (params) => {
-          if (params.dataType === 'node') {
-            this.form = {
-              id: params.data.vid,
-              name: params.data.name,
-              createTime: params.data.ctime,
-              type: graph.categories[params.data.category].name,
-              sentence: params.data.sentence
-            }
-          }
-        })
-      })
-
-    },
     filterGraphData(data, maxRelations) {
       if (!data || !data.edges || !data.vertexLists) {
         return data;
@@ -399,6 +233,137 @@ export default {
         edges: finalEdges
       };
     },
+    createNodes(vertexs) {
+      var nodes = []
+      for (var i = 0; i < vertexs.length; i++) {
+        const categoryIndex = this.category.findIndex(item => item.name === vertexs[i].type);
+        nodes.push({
+          'id': vertexs[i].VID,
+          'name': vertexs[i].name,
+          'createTime': vertexs[i].createTime,
+          'type': vertexs[i].type,
+          'sentence': vertexs[i].sentence,
+          'category': categoryIndex >= 0 ? categoryIndex : 0,
+          'x': Math.random() * 100,
+          'y': Math.random() * 100
+        })
+      }
+      return nodes
+    },
+    createEdges(ex_edges) {
+      var edges = []
+      for (var i = 0; i < ex_edges.length; i++) {
+        edges.push({
+          'source': ex_edges[i].src,
+          'target': ex_edges[i].dst,
+          'name': ex_edges[i].edgename
+        })
+      }
+      return edges
+    },
+    showGraph(res_data) {
+      this.mainbox_chart = this.$echarts.init(
+        document.getElementById("mainbox")
+      );
+      this.mainbox_chart.showLoading();
+
+      const nodes = this.createNodes(res_data.vertexLists);
+      const links = this.createEdges(res_data.edges);
+
+      console.log(nodes)
+      console.log(links)
+
+      let option = {
+        title: {
+          text: "多源物联网知识图谱实体链接",
+          top: "top",
+          left: "left",
+        },
+        tooltip: {
+          trigger: "item",
+          enterable: true,
+          formatter: (params) => {
+            if(params.dataType == "edge") {
+              return "关系: " + params.data.name;
+            }
+            else{
+              return "ID: " + params.data.id + "<br/>" +
+                "名称: " + params.data.name + "<br/>" +
+                "创建时间: " + params.data.createTime + "<br/>" +
+                "类型: " + params.data.type + "<br/>"
+            }
+          }
+        },
+        legend: {
+          top: "bottom",
+          data: this.category.map(item => item.name),
+        },
+        // animationDuration: 0,
+        // animationDurationUpdate: 1500,
+        // animationEasingUpdate: "quinticInOut",
+        series:[
+          {
+            name: "知识图谱",
+            type: "graph",
+            layout: "force",
+            force: {
+              repulsion: 300,
+              gravity: 0.1,
+              edgeLength: 80,
+              friction: 0.6,
+              layoutAnimation: true,
+            },
+            data: nodes,
+            links: links,
+            categories: this.category,
+            symbolSize: 20,
+            roam: true,
+            focusNodeAdjacency: true,
+            itemStyle: {
+              borderColor: "#fff",
+              borderWidth: 1,
+              shadowBlur: 10,
+              shadowColor: 'rgba(0, 0, 0, 0.3)',
+            },
+            label: {
+              show: true,
+              position: "right",
+              formatter: "{b}",
+              fontSize: 12
+            },
+            lineStyle: {
+              width: 2,
+              color: "source",
+            },
+            emphasis: {
+              focus: "adjacency",
+              lineStyle: {
+                width: 5,
+              }
+            },
+            edgeSymbol: ["circle", "arrow"],
+            edgeSymbolSize: [4, 10],
+            edgeLabel: {
+              show: true,
+              fontSize: 10,
+              formatter: (params) => {
+                return params.data.name
+              }
+            },
+            // itemStyle: {
+            //   color: "#6495ED"
+            // }
+          }
+        ]
+      }
+      this.mainbox_chart.hideLoading();
+      this.mainbox_chart.setOption(option);
+      this.mainbox_chart.on("click", (params) => {
+        if(params.dataType == "node"){
+          this.form = params.data
+        }
+      })
+    },
     getNodeInfo_search() {
       if (this.getsearch_option == 2) {
         request({
@@ -447,7 +412,6 @@ export default {
               <p>实体: {res.data.mention}</p>
               <p>链接结果: {res.data.title}</p>
               <p>描述: {res.data.text}</p>
-              <p>资源地址: {res.data.url}</p>
             </div>
           ),
           showClose : false,

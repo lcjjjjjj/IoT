@@ -2,7 +2,7 @@
   <div>
     <Panel :title="title" :desc="desc" />
     <template>
-      <el-table :data="tableData" style="width: 100%" >
+      <el-table :data="tableData" style="width: 100%" :default-sort="{prop: 'id', order: 'ascending'}" :sort-method="sortById">
 
         <el-table-column prop="id" label="ID" width="180"  align="center">
         </el-table-column>
@@ -53,9 +53,8 @@ export default {
         }
         }).then((res)=>{
             console.log(res,"res");
-            this.tableData = res.data.list
+            this.tableData = res.data.list.sort((a, b) => Number(a.id) - Number(b.id))
             this.total = res.data.totalCount
-            
         })
     },
     handleSizeChange() {

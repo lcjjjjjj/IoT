@@ -117,11 +117,12 @@
 </template>
 
 <script>
-import { request } from "../components/network.js";
+import { tail } from "shelljs";
+import webkitDep from "../src/assets/graph.json";
+import { request } from "../src/components/network.js";
 import { Loading, MessageBox } from "element-ui";
 import Panel from "../components/Panel.vue";
-import * as echarts from "echarts";
-  
+
 export default {
   data() {
     return {
@@ -166,247 +167,123 @@ export default {
         "step": "1",
       }
     }).then((res) => {
-      const filteredData = this.filterGraphData(res.data, 100);
-      console.log(filteredData, "filteredData")
-      this.showGraph(filteredData);
+      this.showGraph(res.data)
     })
   },
   components: {
     Panel,
   },
   methods: {
-    parserGraph(res_data) {
-      return new Promise((resolve) => {
-        var graph = {
-          type: "force",
-          categories: [],
-          nodes:[],
-          links: []
-        }
-        // 统计节点的所有种类
-        var categories = new Set()
-        for (var i = 0; i < res_data.vertexLists.length; i++) {
-          categories.add(res_data.vertexLists[i].type)
-        }
-        // 将Set转换为数组并添加到图的categories中
-        graph.categories = Array.from(categories).map((category, index) => {
-          return {
-            name: category,
-            keyword: {},
-            base: category
-          }
-        });
-        // 处理节点数据
-        for (var i = 0; i < res_data.vertexLists.length; i++){
-          var node = {
-            name: res_data.vertexLists[i].name,
-            value: 1,
-            category: graph.categories.findIndex(item => item.name === res_data.vertexLists[i].type),
-            vid: res_data.vertexLists[i].VID,
-            ctime: res_data.vertexLists[i].createTime,
-            sentence: res_data.vertexLists[i].sentence
-          }
-          graph.nodes.push(node)
-        }
-        //处理边数据
-        for (var i = 0; i< res_data.edges.length; i++) {
-          var srcNode = res_data.vertexLists[res_data.vertexLists.findIndex(item => item.VID === res_data.edges[i].src)].name
-          var dstNode = res_data.vertexLists[res_data.vertexLists.findIndex(item => item.VID === res_data.edges[i].dst)].name
-          var edge = {
-            name: res_data.edges[i].edgename,
-            source: graph.nodes.findIndex(item => item.name === srcNode),
-            target: graph.nodes.findIndex(item => item.name === dstNode)
-          }
-          graph.links.push(edge)
-        }
-        resolve(graph)
-      });
+    createNodes(vertexs) {
+      var nodes = []
+      for (var i = 0; i < vertexs.length; i++) {
+        nodes.push({
+          'id': vertexs[i].VID,
+          'name': vertexs[i].name,
+          'createTime': vertexs[i].createTime,
+          'type': vertexs[i].type,
+          'sentence': vertexs[i].sentence,
+          'category': this.category.findIndex(item => item.name == vertexs[i].type)
+        })
+      }
+      return nodes
+    },
+    createEdges(ex_edges) {
+      var edges = []
+      for (var i = 0; i < ex_edges.length; i++) {
+        edges.push({
+          'source': ex_edges[i].src,
+          'target': ex_edges[i].dst,
+          'name': ex_edges[i].edgename
+        })
+      }
+      return edges
     },
     showGraph(res_data) {
-      this.mainbox_chart = echarts.init(
+      this.mainbox_chart = this.$echarts.init(
         document.getElementById("mainbox")
-      );
-      this.mainbox_chart.showLoading();
-      this.parserGraph(res_data).then(graph => {
-        var nodes = graph.nodes.map((node, index) => {
-          node.id = index;
-          return node;
-        })
-        var links = graph.links
-        this.mainbox_chart.hideLoading();
-        console.log(Array.from(graph.categories).map((category, index) => {
-              return category.name
-            }))
-        var option = {
-          title: {
-            text: "多源物联网知识图谱实体链接",
-            top: "top",
-            left: "left"
-          },
-          tooltip: {
-            trigger: "item",
-            enterable: true,
-            formatter: (params) => {
-              if (params.dataType === "edge") {
-                return "关系: " + params.data.name;
-              } else {
-                return "ID: " + params.data.vid + "<br/>" +
-                  "名称: " + params.data.name + "<br/>" + 
-                  "创建时间: " + params.data.ctime + "<br/>" +
-                  "类型: " + graph.categories[params.data.category].name;
-              }
+      )
+      //this.createNodes(res_data.vertexLists)
+      //this.createEdges(res_data.edges)
+      let option = {
+        title: {
+          text: "多源物联网知识图谱推理",
+          top: "top",
+          left: "left",
+        },
+        tooltip: {
+          trigger: "item",
+          enterable: true,
+          formatter: (params) => {
+            if(params.dataType == "edge") {
+              return "关系: " + params.data.name;
             }
-          },
-          legend: {
-            data: graph.categories.map(category => category.name),
-            top: "bottom",
-            selectedMode: 'multiple',
-            selector: true
-          },
-          animationDuration: 1500,
-          animationEasingUpdate: 'quinticInOut',
-          series: [
-            {
-              type: 'graph',
-              layout: 'force',
-              animation: false,
-              label: {
-                position: 'right',
-                formatter: '{b}'
+            else{
+              return "ID: " + params.data.id + "<br/>" +
+                "名称: " + params.data.name + "<br/>" +
+                "创建时间: " + params.data.createTime + "<br/>" +
+                "类型: " + params.data.type + "<br/>"
+            }
+          }
+        },
+        legend: {
+          top: "bottom",
+        },
+        animationDuration: 500,
+        animationDurationUpdate: 250,
+        series:[
+          {
+            name: "kgreasoning",
+            type: "graph",
+            layout: "force",
+            force: {
+              repulsion: 100,
+              edgeLength: [20, 50],
+            },
+            data: this.createNodes(res_data.vertexLists),
+            links: this.createEdges(res_data.edges),
+            categories: this.category,
+            symbolSize: 15,
+            roam: true,
+            symbol: "circle",
+            label: {
+              show: true,
+              position: "right",
+              formatter: "{b}",
+            },
+            edgeSymbol: ["circle", "arrow"],
+            edgeSymbolSize: [4, 10],
+            lineStyle: {
+              show: true,
+              color: "#000",
+            },
+            edgeLabel: {
+              show: true,
+              formatter: (params) => {
+                return params.data.name
               },
-              roam: true,
-              draggable: true,
-              data: nodes,
-              categories: graph.categories,
-              symbolSize: 15,
-              label: {
-                show: true,
-                position: "right",
-                formatter: "{b}",
-                fontsize: 10
-              },
-              force: {
-                edgeLength: [100,150],
-                repulsion: 500,
-                gravity: 0.4,
-                layoutAnimation: true,
-                initLayout: "circular",
-                nodeRepulsion: (node1, node2) => {
-                  // 如果是同一类别，减小斥力
-                  if (node1.category === node2.category) {
-                    return 0; // 同类别减小斥力
-                  }
-                  return 1000; // 不同类别增大斥力
-                }
-              },
-              edges: links,
-              edgeSymbol: ['arrow'],
-              edgeSymbolSize: [4, 10],
-              edgeLabel: {
-                show: true,
-                position: 'middle',
-                formatter: (params) => {
-                  return params.data.name;
-                },
-                fontSize: 8,
-                align: 'center',
-                verticalAlign: 'middle'
-              },
-              emphasis: {
-                focus: 'adjacency',
-                lineStyle: {
-                  width: 5
-                }
-              },
+              textStyle: {
+                fontSize: 12
+              }
+            },
+            emphasis: {
+              focus: "adjacency",
               lineStyle: {
-                curveness: 0.01,
-                width: 1.5
+                width: 10,
               }
-            }
-          ]
-        };
-        this.mainbox_chart.setOption(option);
-        this.mainbox_chart.on("click", (params) => {
-          if (params.dataType === 'node') {
-            this.form = {
-              id: params.data.vid,
-              name: params.data.name,
-              createTime: params.data.ctime,
-              type: graph.categories[params.data.category].name,
-              sentence: params.data.sentence
-            }
+            },
+            // itemStyle: {
+            //   color: "#6495ED"
+            // }
           }
-        })
+        ]
+      }
+      this.mainbox_chart.setOption(option)
+      this.mainbox_chart.on("click", (params) => {
+        if(params.dataType == "node"){
+          this.form = params.data
+        }
       })
-
-    },
-    filterGraphData(data, maxRelations) {
-      if (!data || !data.edges || !data.vertexLists) {
-        return data;
-      }
-      // 按类型对节点分组
-      const nodeByType = {}
-      data.vertexLists.forEach(vertex => {
-        if (!nodeByType[vertex.type]) {
-          nodeByType[vertex.type] = [];
-        }
-        nodeByType[vertex.type].push(vertex);
-      });
-      
-      //对每种类型最多保留10个节点
-      const maxNodesPerType = 10;
-      let selectedVertices = [];
-      Object.keys(nodeByType).forEach(type => {
-        const vertices = nodeByType[type];
-        if (vertices.length > maxNodesPerType) {
-          for (let i = vertices.length -1 ; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [vertices[i], vertices[j]] = [vertices[j], vertices[i]];
-          }
-          selectedVertices = selectedVertices.concat(vertices.slice(0, maxNodesPerType));
-        } else {
-          selectedVertices = selectedVertices.concat(vertices);
-        }
-      });
-
-      //获取选中节点的ID集合
-      const selectedNodeIds = new Set(selectedVertices.map(vertex => vertex.VID));
-      //筛选包含选中节点的边
-      const selectedEdges = data.edges.filter(edge => 
-        selectedNodeIds.has(edge.src) && selectedNodeIds.has(edge.dst)
-      );
-      // 如果边数量仍然太多，进一步限制
-      let finalEdges = selectedEdges;
-      if (selectedEdges.length > maxRelations) {
-        // 按照关联节点的重要性排序边，确保重要节点的边被保留
-        const edgeScores = selectedEdges.map(edge => {
-          // 计算边的得分，可以基于节点的连接数等因素
-          const srcCount = selectedEdges.filter(e => e.src === edge.src || e.dst === edge.src).length;
-          const dstCount = selectedEdges.filter(e => e.src === edge.dst || e.dst === edge.dst).length;
-          return { edge, score: srcCount + dstCount };
-        });
-        
-        // 按分数降序排序
-        edgeScores.sort((a, b) => b.score - a.score);
-        
-        // 取前maxRelations条边
-        finalEdges = edgeScores.slice(0, maxRelations).map(item => item.edge);
-      }
-      
-      // 重新获取所有边关联的节点ID
-      const finalNodeIds = new Set();
-      finalEdges.forEach(edge => {
-        finalNodeIds.add(edge.src);
-        finalNodeIds.add(edge.dst);
-      });
-      
-      // 最终过滤出有效的节点集合
-      const finalVertices = selectedVertices.filter(vertex => finalNodeIds.has(vertex.VID));
-      
-      return {
-        vertexLists: finalVertices,
-        edges: finalEdges
-      };
     },
     getNodeInfo_search() {
       if (this.getsearch_option == 2) {

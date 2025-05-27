@@ -3,7 +3,7 @@
     <el-container>
       <el-header>
         <div class="title">
-          异构物联网安全知识抽取系统
+          物联网威胁信息融合分析系统
         </div>
       </el-header>
       <el-container>
@@ -44,10 +44,10 @@
             :class="{ active: $route.path === '/Evaluation' }">
             <img :src="$route.path === '/Evaluation' ? require('@/assets/inference_c.png') : require('@/assets/inference_o.png')" alt="图标"  class="menu-item-icon"/>
             态势评估</el-menu-item>
-            <el-menu-item index="/EventAnalysis" class="font" 
+            <!-- <el-menu-item index="/EventAnalysis" class="font" 
             :class="{ active: $route.path === '/EventAnalysis' }">
             <img :src="$route.path === '/EventAnalysis' ? require('@/assets/inference_c.png') : require('@/assets/inference_o.png')" alt="图标"  class="menu-item-icon"/>
-            事件溯源分析</el-menu-item>
+            事件溯源分析</el-menu-item> -->
           </el-menu>
         </el-aside>
         <el-main>
