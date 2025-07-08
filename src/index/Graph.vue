@@ -154,10 +154,11 @@ export default {
       method: "post",
       data: {
         tagName: "cve",
-        "step": "1",
+        "step": "2",
       }
     }).then((res) => {
-      const filteredData = this.filterGraphData(res.data, 100);
+      console.log(res.data, "res.data");
+      const filteredData = this.filterGraphData_Node(res.data, 100, 3);
       console.log(filteredData, "filteredData")
       this.showGraph(filteredData);
     })
@@ -254,7 +255,7 @@ export default {
             selectedMode: 'multiple',
             selector: true
           },
-          animationDuration: 1500,
+          animationDuration: 0,
           animationEasingUpdate: 'quinticInOut',
           series: [
             {
@@ -330,6 +331,103 @@ export default {
         })
       })
 
+    },
+    filterGraphData_Node(data, maxNodes, maxDegree) {
+      if (!data || !data.edges || !data.vertexLists || data.vertexLists.length === 0) {
+        return data;
+      }
+      // 计算每个结点的连通度
+      const nodeDegree = {};
+      data.vertexLists.forEach(vertex => {
+        nodeDegree[vertex.VID] = 0;
+      });
+      data.edges.forEach(edge => {
+        nodeDegree[edge.src] = (nodeDegree[edge.src] || 0) + 1;
+        nodeDegree[edge.dst] = (nodeDegree[edge.dst] || 0) + 1;
+      });
+      // 按连通度排序节点
+      const sortedNodes = [...data.vertexLists].sort((a, b) => {
+        return nodeDegree[b.VID] - nodeDegree[a.VID];
+      });
+      const selectedNodes = [];
+      const selectedEdges = [];
+      const nodeQueue = [];
+      if (sortedNodes.length > 0) {
+        nodeQueue.push(sortedNodes[0].VID);
+      }
+      while (nodeQueue.length > 0 && selectedNodes.length < maxNodes) {
+        const currentNodeId = nodeQueue.shift(); // 从队列中移除并获取第一个节点
+        
+        // 如果该节点已在选定列表中，则跳过
+        if (selectedNodes.some(node => node.VID === currentNodeId)) {
+          continue;
+        }
+        
+        // 添加当前节点到选中列表
+        const currentNode = sortedNodes.find(node => node.VID === currentNodeId);
+        if (currentNode) {
+          selectedNodes.push(currentNode);
+          
+          if (nodeDegree[currentNodeId] > maxDegree) {
+            // 对于高度连接的节点，只选择最重要的maxDegree个邻居
+            const nextNodes = data.edges.filter(edge =>
+              edge.src === currentNodeId || edge.dst === currentNodeId
+            ).map(edge => 
+              edge.src === currentNodeId ? edge.dst : edge.src
+            );
+            
+            // 按连通度排序邻居节点
+            nextNodes.sort((a, b) => nodeDegree[b] - nodeDegree[a]);
+            
+            // 取maxDegree个不在selectedNodes中的结点
+            const filteredNextNodes = nextNodes.filter(nodeId => 
+              !selectedNodes.some(node => node.VID === nodeId)
+            ).slice(0, maxDegree);
+            
+            // 将筛选后的邻居节点添加到队列中以便后续处理
+            filteredNextNodes.forEach(nodeId => {
+              if (!nodeQueue.includes(nodeId)) {
+                nodeQueue.push(nodeId);
+              }
+            });
+            
+            // 添加对应的边
+            data.edges.forEach(edge => {
+              if ((edge.src === currentNodeId && filteredNextNodes.includes(edge.dst)) ||
+                  (edge.dst === currentNodeId && filteredNextNodes.includes(edge.src))) {
+                selectedEdges.push(edge);
+              }
+            });
+          } else {
+            // 对于连接度低的节点，添加所有邻居
+            data.edges.forEach(edge => {
+              let neighborId = null;
+              if (edge.src === currentNodeId) {
+                neighborId = edge.dst;
+              } else if (edge.dst === currentNodeId) {
+                neighborId = edge.src;
+              }
+              
+              if (neighborId && !nodeQueue.includes(neighborId) && !selectedNodes.some(node => node.VID === neighborId)) {
+                nodeQueue.push(neighborId);
+                //添加对应的边
+                selectedEdges.push(edge);
+              }
+            });
+          }
+        }
+      }
+      
+      // 确保所有选定的边都连接到选定的节点
+      const finalSelectedEdges = selectedEdges.filter(edge => 
+        selectedNodes.some(node => node.VID === edge.src) && 
+        selectedNodes.some(node => node.VID === edge.dst)
+      );
+      
+      return {
+        vertexLists: selectedNodes,
+        edges: finalSelectedEdges
+      };
     },
     filterGraphData(data, maxRelations) {
       if (!data || !data.edges || !data.vertexLists) {
