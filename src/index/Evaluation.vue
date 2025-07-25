@@ -49,6 +49,7 @@
               <div class="total-score-container">
                 <div class="score-value" :class="scoreClass">{{ totalScore.toFixed(1) }}</div>
                 <div class="score-label">安全态势评分</div>
+                <div class="score-model-info">{{ getModelLabel(securityModel.model) }} 模型</div>
               </div>
               <div class="score-chart-container">
                 <div id="scoreChart" ref="scoreChart" class="score-chart"></div>
@@ -165,7 +166,30 @@ export default {
     },
     totalScore: {
       get() {
-        return this.$store.getters.getTotalScore;
+        const originalScore = this.$store.getters.getTotalScore;
+        if (!this.hasItems) return originalScore;
+        const factors = this.securityModel.factors;
+        let weightedTotal = 0;
+        let totalWeightApplied = 0;
+        this.deviceItems.forEach(item => {
+          const weight = this.weightMap[item.name] || 0;
+          const score = this.scoreMap[item.name] || 0;
+          weightedTotal += weight * score * (factors.device || 1.0);
+          totalWeightApplied += weight;
+        });
+        this.secureItems.forEach(item => {
+          const weight = this.weightMap[item.name] || 0;
+          const score = this.scoreMap[item.name] || 0;
+          weightedTotal += weight * score * (factors.secure || 1.0);
+          totalWeightApplied += weight;
+        });
+        this.dangerItems.forEach(item => {
+          const weight = this.weightMap[item.name] || 0;
+          const score = this.scoreMap[item.name] || 0;
+          weightedTotal += weight * score * (factors.danger || 1.0);
+          totalWeightApplied += weight;
+        });
+        return totalWeightApplied > 0 ? Number((weightedTotal).toFixed(2)) : originalScore;
       },
       set(value) {
         this.$store.dispatch('updateTotalScore', value);
@@ -227,6 +251,7 @@ export default {
         { key: 'secure', name: '安全数据', color: '#67C23A' },
         { key: 'danger', name: '风险数据', color: '#F56C6C' }
       ];
+      const factors = this.securityModel.factors;
       categories.forEach(category => {
         let items = [];
         let totalScore = 0;
@@ -245,7 +270,8 @@ export default {
         items.forEach(item => {
           const score = this.scoreMap[item.name] || 0;
           const weight = this.weightMap[item.name] || 0;
-          totalScore += score * weight;
+          const adjustedScore = score * (factors[category.key] || 1.0);
+          totalScore += adjustedScore * weight;
           totalWeight += weight;
         });
         if (items.length > 0 && totalWeight > 0) {
@@ -265,6 +291,16 @@ export default {
       });
       return data;
     },
+    securityModel() {
+      return this.$store.getters.getSecurityModel || {
+        model: 'MITRE-ATT&CK',
+        factors: {
+          device: 1.0,
+          secure: 1.2,
+          danger: 1.0
+        }
+      };
+    }
   },
   watch: {
     configChanged(newVal) {
@@ -301,6 +337,18 @@ export default {
           this.initScoreChart();
         });
       }
+    },
+    securityModel: {
+      handler() {
+        this.$nextTick(() => {
+          if (this.hasItems) {
+            if (this.scoreChart) {
+              this.updateScoreChart();
+            }
+          }
+        });
+      },
+      deep: true
     }
   },
   mounted() {
@@ -497,6 +545,8 @@ export default {
     updateScoreChart() {
       if (!this.scoreChart) return;
       
+      const modelName = this.getModelLabel(this.securityModel.model);
+      
       const option = {
         tooltip: {
           trigger: 'item',
@@ -510,7 +560,7 @@ export default {
         },
         series: [
           {
-            name: '各类指标得分',
+            name: `${modelName}模型评分`,
             type: 'pie',
             radius: ['40%', '70%'],
             center: ['40%', '50%'],
@@ -591,6 +641,16 @@ export default {
     handleCloseDialog() {
       this.dialogVisible = false;
       this.selectedReport = null;
+    },
+    getModelLabel(value) {
+      const modelOptions = [
+        { value: 'MITRE-ATT&CK', label: 'IoTSentinel Core' },
+        { value: 'IoTSF', label: 'ThreatMatrix IoT' },
+        { value: 'OWASP-IoT', label: 'AegisVision IoT' }
+      ];
+      
+      const model = modelOptions.find(m => m.value === value);
+      return model ? model.label : '默认';
     }
   }
 }
@@ -710,6 +770,12 @@ export default {
 .score-label {
   font-size: 16px;
   color: #606266;
+}
+
+.score-model-info {
+  font-size: 14px;
+  color: #909399;
+  margin-top: 5px;
 }
 
 .refresh-btn {

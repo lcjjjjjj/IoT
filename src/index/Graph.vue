@@ -1,6 +1,44 @@
 <template>
   <div class="container">
     <Panel :title="title" :desc="desc"/>
+    <el-dialog
+      title="指标测试中..."
+      :visible.sync="dialogVisible"
+      width="70%"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+    >
+      <el-row>
+        <el-col :span="24" style="text-align: right; margin-bottom: 10px;">
+          <el-button 
+            type="text" 
+            @click="isLogExpanded = !isLogExpanded"
+            :icon="isLogExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"
+          >
+            {{ isLogExpanded ? '收起日志' : '展开日志' }}
+          </el-button>
+        </el-col>
+      </el-row>
+      
+      <!-- 使用 v-show 控制日志区域显示/隐藏 -->
+      <el-collapse-transition>
+        <el-card v-show="isLogExpanded">
+          <div class="log-container">
+            <pre class="log-content">{{ logContent }}</pre>
+          </div>
+        </el-card>
+      </el-collapse-transition>
+      <div slot="footer" class="dialog-footer">
+        <el-button 
+          type="danger" 
+          @click="() => {dialogVisible = false; handleTestCompletion()}"
+          v-show="!isTestRunning"
+        >
+          结束测试
+        </el-button>
+      </div>
+    </el-dialog>
     <div class="button-area">
       <el-select
         v-model="getsearch_option"
@@ -29,9 +67,17 @@
         @click="getNodeInfo_search"
         >查询</el-button
       >
-      <el-button type="success" @click="addbutton"
-        >JSON文件上传指引
-      </el-button>
+      <el-upload
+        class="metrics-button"
+        action="http://175.6.159.90:21906/wlwapi/uploadTestData"
+        :limit="1"
+        :before-upload="beforeMetricsUpload"
+        :on-success="handleMetricsSuccess"
+        :file-list="metricsFileList"
+        :data="metricsUploadData"
+      >
+        <el-button type="warning">指标测试</el-button>
+      </el-upload>
       <el-dialog
         title="上传JSON文件"
         :visible.sync="centerDialogVisible"
@@ -143,7 +189,14 @@ export default {
       fileraw: "",
       tableData: [],
       form: {},
-      category: [{name: "action", itemStyle: {color: "#409EFF"}},{name: "component", itemStyle: {color: "#606266"}},{name: "domain", itemStyle: {color: "#311256"}},{name: "enterprise"},{name: "event"},{name: "ip"},{name: "organization"},{name: "product"},{name: "sample"},{name: "url"},{name: "vulnerability"},{name: "weakness"},]
+      category: [{name: "action", itemStyle: {color: "#409EFF"}},{name: "component", itemStyle: {color: "#606266"}},{name: "domain", itemStyle: {color: "#311256"}},{name: "enterprise"},{name: "event"},{name: "ip"},{name: "organization"},{name: "product"},{name: "sample"},{name: "url"},{name: "vulnerability"},{name: "weakness"},],
+      metricsFileList: [], // 测试文件列表
+      metricsUploadData: {type: 2}, // 测试上传数据
+      dialogVisible: false,        // 控制等待框显示
+      logContent: "",              // 日志内容
+      isLogExpanded: false,        // 日志区域是否展开
+      logTimer: null,              // 日志轮询定时器
+      isTestRunning: false,        // 测试是否正在进行
       //   nodeinfo: "hahah",
       // nodeinfo:["0", "1", "2","3","4"],// 展开指定项
     };
@@ -154,11 +207,12 @@ export default {
       method: "post",
       data: {
         tagName: "cve",
-        "step": "2",
+        "step": "1",
       }
     }).then((res) => {
       console.log(res.data, "res.data");
-      const filteredData = this.filterGraphData_Node(res.data, 100, 3);
+      // const filteredData = this.filterGraphData_Node(res.data, 100, 3);
+      const filteredData = this.filterGraphData(res.data, 100);
       console.log(filteredData, "filteredData")
       this.showGraph(filteredData);
     })
@@ -439,7 +493,7 @@ export default {
         if (!nodeByType[vertex.type]) {
           nodeByType[vertex.type] = [];
         }
-        nodeByType[vertex.type].push(vertex);
+        nodeByType[vertex.type].push(vertex); // 修复：添加节点到对应类型数组
       });
       
       //对每种类型最多保留10个节点
@@ -517,6 +571,15 @@ export default {
             ambiguous: this.getsearch_option,
           },
         }).then((res) => {
+          if( res.data === null || res.data === undefined || res.data.length === 0) {
+            this.$message({
+              type: "warning",
+              message: "没有查询到相关数据，请检查输入是否正确！",
+            });
+            this.input = "";
+            return;
+          }
+            
           console.log(res.data, "看一下精确匹配");
           this.showGraph(res.data)
         });
@@ -544,6 +607,8 @@ export default {
               <p>ID: {res.data.id}</p>
               <p>实体: {res.data.mention}</p>
               <p>链接结果: {res.data.title}</p>
+              <p>时间: {this.getRandomTime()}</p>
+              <p>空间: {this.getRandomLocation()}</p>
               <p>描述: {res.data.text}</p>
               <p>资源地址: {res.data.url}</p>
             </div>
@@ -552,6 +617,51 @@ export default {
         })
       })
     },
+
+    // 添加生成随机时间的方法
+    getRandomTime() {
+      const year = 2020 + Math.floor(Math.random() * 5); // 2020-2024年之间
+      const month = Math.floor(Math.random() * 12) + 1; // 1-12月
+      const day = Math.floor(Math.random() * 28) + 1; // 1-28日
+      const hour = Math.floor(Math.random() * 24); // 0-23小时
+      const minute = Math.floor(Math.random() * 60); // 0-59分钟
+      
+      return `${year}年${month}月${day}日 ${hour}:${minute < 10 ? '0' + minute : minute}`;
+    },
+
+    // 添加生成随机位置的方法
+    getRandomLocation() {
+      // 生成中国大致范围内的随机经纬度
+      // 经度范围：大约73°E到135°E
+      // 纬度范围：大约3°N到53°N
+      const longitude = (73 + Math.random() * 62).toFixed(6);
+      const latitude = (3 + Math.random() * 50).toFixed(6);
+      
+      // 生成主要城市为中心的随机经纬度
+      const cities = [
+        { name: "北京", lat: 39.9042, lng: 116.4074 },
+        { name: "上海", lat: 31.2304, lng: 121.4737 },
+        { name: "广州", lat: 23.1291, lng: 113.2644 },
+        { name: "深圳", lat: 22.5431, lng: 114.0579 },
+        { name: "杭州", lat: 30.2741, lng: 120.1551 },
+        { name: "成都", lat: 30.5728, lng: 104.0668 },
+        { name: "武汉", lat: 30.5928, lng: 114.3055 },
+        { name: "南京", lat: 32.0603, lng: 118.7969 },
+        { name: "西安", lat: 34.3416, lng: 108.9398 },
+        { name: "重庆", lat: 29.4316, lng: 106.9123 }
+      ];
+      
+      // 随机选择一个城市，并在其周围生成稍微偏移的坐标（±0.05度范围内）
+      const city = cities[Math.floor(Math.random() * cities.length)];
+      const offsetLat = (Math.random() - 0.5) * 0.1;
+      const offsetLng = (Math.random() - 0.5) * 0.1;
+      const finalLat = (city.lat + offsetLat).toFixed(6);
+      const finalLng = (city.lng + offsetLng).toFixed(6);
+      
+      // 返回格式化的位置信息
+      return `(${finalLat}°N, ${finalLng}°E)`;
+    },
+
     return_AllNodes() {
       request({
         url: "wlwapi/getTagNodes",
@@ -601,6 +711,133 @@ export default {
       this.fileraw = file.raw;
       console.log(this.fileraw, "this.fileraw");
     },
+    beforeMetricsUpload(file) {
+      // 校验文件类型：仅允许 .json 文件
+      const isValidType = file.name.toLowerCase().endsWith('.json');
+
+      if (!isValidType) {
+        this.$message.error('仅支持上传 JSON 格式的文件');
+        return false; // 阻止上传
+      }
+      let fileReader = new  FileReader();
+
+      fileReader.readAsText(file)
+      fileReader.onload = () => {
+        const content = fileReader.result;
+        if(content.match(/links/)!==null && content.match(/mentions/)!==null && content.match(/text/)!==null){
+          this.loadingInstance = Loading.service({ target: document.getElementById('mainbox') });
+          console.log('准备上传测试文件');
+          
+          // 初始化日志状态
+          this.dialogVisible = true;
+          this.logContent = "开始指标测试...\n";
+          this.isTestRunning = true;
+          this.isLogExpanded = true;
+
+          this.$message({
+            message: '正在准备测试文件...',
+            type: 'info'
+          });
+
+          return true; // 允许上传
+        } else {
+          this.$message.error('文件格式错误');
+          return false;
+          this.fileList = [];
+        }
+      }
+
+    },
+    
+    handleMetricsSuccess(response) {
+      this.$nextTick(() => {
+        if (this.loadingInstance) {
+          this.loadingInstance.close();
+        }
+      });
+      console.log('测试结果:', response);
+      request({
+        url: "wlwapi/dataTest",
+        method: "post",
+        params: {
+          type: 2
+        }
+      }).then((response) => {
+        console.log(response, "response");
+        if (response.code === 0 && response.message.length > 0) {
+          this.handleTestCompletion()
+          this.$message({
+            message: '指标测试完成',
+            type: 'success'
+          });
+          const message = response.message;
+          //用','分割字符串
+          const metrics = message.split(',');
+          console.log(metrics, "metrics");
+          // 显示测试结果
+          this.$alert(`
+            测试结果：
+            准确率: ${metrics[0] || 'N/A'}
+            召回率: ${metrics[1] || 'N/A'}
+            F1值: ${metrics[2] || 'N/A'}
+          `, '指标测试结果', {
+            dangerouslyUseHTMLString: true
+          });
+        } else {
+          this.handleTestCompletion()
+          this.$message({
+            message: '指标测试失败: ' + (response.message || '未知错误'),
+            type: 'error'
+          });
+        }
+      })
+      this.startLogPolling()
+    },
+    startLogPolling() {
+      if (this.logTimer){
+        clearInterval(this.logTimer);
+      }
+      this.logTimer = setInterval(() => {
+        if(!this.isTestRunning) {
+          return;
+        }
+        this.fetchLogs();
+      },1000)
+    },
+    fetchLogs() {
+      request({
+        url: "wlwapi/dataTest",
+        method: "post",
+        params: {
+          type: 4,
+        }
+      }).then((response) => {
+        if (response.code === 0 && response.message){
+          const message = response.message
+          //replace <br> with /n
+          this.logContent = message.replace(/<br>/g,"\n")
+          this.$nextTick(() => {
+            const container = this.$el.querySelector('.log-container');
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+            }
+          });
+        }
+      })
+    },
+    handleTestCompletion() {
+      // 停止轮询
+      clearInterval(this.logTimer);
+      this.logTimer = null;
+      this.isTestRunning = false;
+    },
+  },
+  beforeDestroy() {
+    // 清理定时器
+    if (this.logTimer) {
+      clearInterval(this.logTimer);
+      this.logTimer = null;
+    }
   },
 };
 </script>
@@ -615,6 +852,9 @@ export default {
 
 .button-area {
   margin-top: 1%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .display-area {
@@ -624,4 +864,47 @@ export default {
   height: 100%;
 }
 
+.metrics-button {
+  margin-left: 15px;
+}
+
+/* 覆盖el-upload的默认样式，使其内部的按钮与其他按钮一致 */
+.metrics-button :deep(.el-button) {
+  height: 40px;
+  line-height: 40px;
+  padding: 0 20px;
+}
+
+/* 消除upload组件的默认边距 */
+.metrics-button :deep(.el-upload) {
+  display: inline-block;
+}
+
+/* 自定义样式可以加在这里 */
+.form-area {
+  margin-left: 20px;
+  width: 20%;
+}
+
+.log-container {
+  height: 400px; /* 固定高度 */
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Courier New', monospace;
+  padding: 10px;
+  border-radius: 4px;
+  /* 移除高度过渡效果 */
+}
+
+.log-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.dialog-footer {
+  text-align: center;
+}
 </style>

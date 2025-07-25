@@ -6,6 +6,7 @@ Vue.use(Vuex)
 
 export default new Vuex.Store({
   state: {
+    iotConfigData: {},
     activateDevice: [],
     activateSecureData: [],
     activateDangerData: [],
@@ -14,22 +15,28 @@ export default new Vuex.Store({
     scoreMap: {},
     totalScore: 0,
     lastConfigState: '',
-    isWeightInitialized: false
+    isWeightInitialized: false,
+    securityModel: null
   },
   mutations: {
-    SET_ACTIVATE_DEVICE(state, deviceIds) {
-      state.activateDevice = deviceIds;
+    SET_IOT_CONFIG_DATA(state, payload) {
+      state.iotConfigData = payload;
     },
-    SET_ACTIVATE_SECURE_DATA(state, dataIds){
-      state.activateSecureData = dataIds;
+    CLEAR_IOT_CONFIG_DATA(state) {
+      state.iotConfigData = {};
     },
-    SET_ACTIVATE_DANGER_DATA(state, dataIds){
-      state.activateDangerData = dataIds;
+    SET_ACTIVATE_DEVICE(state, payload) {
+      state.activateDevice = payload;
     },
-    SET_DATA_PREVIEW_LIST(state, dataIds){
-      state.dataPreviewList = dataIds;
+    SET_ACTIVATE_SECURE_DATA(state, payload) {
+      state.activateSecureData = payload;
     },
-    //权重和评分相关
+    SET_ACTIVATE_DANGER_DATA(state, payload) {
+      state.activateDangerData = payload;
+    },
+    SET_DATA_PREVIEW_LIST(state, payload) {
+      state.dataPreviewList = payload;
+    },
     SET_WEIGHT_MAP(state, weightMap) {
       state.weightMap = weightMap;
     },
@@ -44,20 +51,29 @@ export default new Vuex.Store({
     },
     SET_WEIGHT_INITIALIZED(state, isInitialized) {
       state.isWeightInitialized = isInitialized;
+    },
+    SET_SECURITY_MODEL(state, model) {
+      state.securityModel = model;
     }
   },
   actions: {
-    updateActivateDevice({ commit }, deviceIds) {
-      commit('SET_ACTIVATE_DEVICE', deviceIds);
+    saveIoTConfigData({ commit }, data) {
+      commit('SET_IOT_CONFIG_DATA', data);
     },
-    updateActivateSecureData({ commit }, dataIds) {
-      commit('SET_ACTIVATE_SECURE_DATA', dataIds);
+    clearIoTConfigData({ commit }) {
+      commit('CLEAR_IOT_CONFIG_DATA');
     },
-    updateActivateDangerData({ commit }, dataIds) {
-      commit('SET_ACTIVATE_DANGER_DATA', dataIds);
+    updateActivateDevice({ commit }, data) {
+      commit('SET_ACTIVATE_DEVICE', data);
     },
-    updateDataPreviewList({ commit }, dataIds) {
-      commit('SET_DATA_PREVIEW_LIST', dataIds);
+    updateActivateSecureData({ commit }, data) {
+      commit('SET_ACTIVATE_SECURE_DATA', data);
+    },
+    updateActivateDangerData({ commit }, data) {
+      commit('SET_ACTIVATE_DANGER_DATA', data);
+    },
+    updateDataPreviewList({ commit }, data) {
+      commit('SET_DATA_PREVIEW_LIST', data);
     },
     updateWeightMap({ commit }, weightMap) {
       commit('SET_WEIGHT_MAP', weightMap);
@@ -78,9 +94,13 @@ export default new Vuex.Store({
     },
     setWeightInitialized({ commit }, isInitialized) {
       commit('SET_WEIGHT_INITIALIZED', isInitialized);
+    },
+    updateSecurityModel({ commit }, model) {
+      commit('SET_SECURITY_MODEL', model);
     }
   },
   getters: {
+    getIoTConfigData: state => state.iotConfigData,
     getActivateDevice: state => state.activateDevice,
     getActivateSecureData: state => state.activateSecureData,
     getActivateDangerData: state => state.activateDangerData,
@@ -90,7 +110,6 @@ export default new Vuex.Store({
     getTotalScore: state => state.totalScore,
     getLastConfigState: state => state.lastConfigState,
     getWeightInitialized: state => state.isWeightInitialized,
-    // 检测配置是否发生变化
     hasConfigChanged: (state) => {
       const currentConfig = JSON.stringify({
         device: state.activateDevice,
@@ -98,6 +117,7 @@ export default new Vuex.Store({
         danger: state.activateDangerData
       });
       return currentConfig !== state.lastConfigState;
-    }
+    },
+    getSecurityModel: state => state.securityModel
   }
 })

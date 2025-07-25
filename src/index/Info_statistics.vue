@@ -107,7 +107,7 @@ export default{
       desc: '主要展示个功能模块的准确率信息以及，知识抽取模块中实体和关系的统计信息。',
       activeName: 'first',
       totalEntities: {'url': 1088, 'sample': 8962, 'component': 33100, 'organization': 2694, 'product': 33594, 'event': 4305, 'action': 18088, 'enterprise': 1953, 'vulnerability': 70983, 'ip': 493, 'domain': 869, 'weakness': 9353},
-      totalRelations: {'download': 749, 'access': 1170, 'same_organization_intelligence': 3713, 'execute': 38655, 'exploit': 14400, 'target_of': 22098, 'alias': 5859, 'intelligence_contain': 7779, 'call': 2103, 'invade': 19676, 'influence': 75747, 'storage': 109, 'perform': 600, 'have': 42472, 'lead_to': 40904, 'related_to': 67, 'inverse_query': 105, 'analysis': 183, 'related_domain': 191, 'consist_of': 39574, 'similar_to': 2094, 'production_of': 7949, 'belong_to': 113, 'same_organization_event': 693, 'same_network_segment': 247, 'associate': 26, 'outside_chain': 24, 'subdomain': 146, 'upload': 1},
+      totalRelations: {'download': 749, 'access': 1170, 'same_organization_intelligence': 3713, 'execute': 38655, 'exploit': 14400, 'target_of': 22098, 'alias': 5859, 'intelligence_contain': 7779, 'call': 2103, 'invade': 19676, 'influence': 75747, 'storage': 109, 'perform': 600, 'have': 42472, 'lead_to': 40904, 'related_to': 67, 'inverse_query': 105, 'analysis': 183, 'related_domain': 191, 'consist_of': 39574, 'similar_to': 2094, 'production_of': 7949, 'belong_to': 113, 'same_organization_event': 693, 'same_network_segment': 247, 'associate': 26, 'outside_chain': 24, 'subdomain': 146, 'upload': 125, "certify": 293, "isolate": 378},
       entitiesData: entitiesData,
       relationsData: relationsData,
       chartData: {
